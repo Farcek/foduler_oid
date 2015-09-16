@@ -99,15 +99,22 @@ function Resource(conf, Promise, log) {
         uploadMultiFields: function (fields) {
 
         },
-        remove: function (resourceName,noReject) {
+        remove: function (resourceName, rejected) {
 
-            var file = path.join(conf.root, resourceName);
-            return new Promise(function (resolve, reject) {
-                fs.unlink(file, function (err) {
-                    if (noReject && err) return reject(err);
-                    resolve();
+            if (resourceName) {
+                var file = path.join(conf.root, resourceName);
+                return new Promise(function (resolve, reject) {
+                    fs.unlink(file, function (err) {
+                        if (rejected && err) return reject(err);
+                        resolve();
+                    });
                 });
+            }
+            return new Promise(function (resolve, reject) {
+                if (rejected) reject("resource name is null");
+                resolve();
             });
+
 
         }
     }
