@@ -27,7 +27,6 @@ function move(oldPath, newPath, callback) {
         readStream.on('error', callback);
         writeStream.on('error', callback);
         readStream.on('close', function () {
-
             fs.unlink(oldPath, callback);
         });
 
@@ -97,7 +96,36 @@ function Resource(conf, Promise, log) {
 
         },
         uploadMultiFields: function (fields) {
+            var a = upload.fields(fields);
+            var b = function (req, res, next) {
+                req.byFile = function (fieldName, index) {
+                    var file = req.files[fieldName];
+                    file.apply = function () {
 
+                        var self = this;
+                        var ext = mime.extension(self.mimetype);
+                        var fileName = uid(10) + '.' + ext;
+                        //var fileName = self.filename + '.' + ext;
+
+                        return new Promise(function (resolve, reject) {
+                            move(self.path, path.join(conf.root, fileName), function (err) {
+                                if (err) return reject(err);
+                                log('', 'move file' + fileName)
+                                self.resourceName = fileName;
+                                resolve();
+                            });
+                        })
+                            .then(function () {
+                                return self;
+                            })
+                    }
+                    return file;
+                }
+
+                next();
+            }
+
+            return [a, b]
         },
         remove: function (resourceName, rejected) {
 
@@ -116,6 +144,18 @@ function Resource(conf, Promise, log) {
             });
 
 
+        },
+        allFiles: function (cb) {
+            fs.readdir(conf.root, function (err, results) {
+                if (err) return cb(err);
+
+                var files = [];
+                results.forEach(function (f) {
+                    files.push(f);
+                });
+
+                cb(false, files);
+            });
         }
     }
 }
@@ -184,8 +224,25 @@ module.exports = foduler.module('module:resource')
                             })
                             .catch(next)
                     }
-                }
+                },
+                public: function (section, paramName) {
+                    var sett = uploader, reqParamName = paramName || "image";
+                    if (section && section in uploader) {
+                        sett = uploader[section];
+                    }
 
+
+                    return function (req, res, next) {
+                        var fle, fileName = req.params[reqParamName];
+                        if (fileName)
+                            fle = path.join(sett.rootPath, fileName);
+
+
+                        if (fle && fs.existsSync(fle))
+                            res.sendFile(fle);
+                        else res.sendFile(path.join(__dirname, 'resource/medium.jpg'));
+                    }
+                }
             }
         }
     ])

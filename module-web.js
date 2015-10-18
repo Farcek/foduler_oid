@@ -1,22 +1,32 @@
 var foduler = require('./foduler1');
-var express = require('express')
+
 
 module.exports = foduler.module('module:web-base')
     .factory('express', function () {
-        return express;
+        return require('express');
+    })
+    .factory('favicon', function () {
+        return require('serve-favicon');
+    })
+    .factory('morgan', function () {
+        return require('morgan');
+    })
+    .factory('body-parser', function () {
+        return require('body-parser');
     })
 
-    .factory('appFactory', function () {
+    .factory('appFactory', ['express',function (express) {
         var _app;
         return function (app) {
-            if (app) _app = app;
+            var _app = app || (_app = express());
 
-
-            return _app || (_app = express());
+            _app.disable('x-powered-by');
+            return _app ;
         };
-    })
+    }])
     .factory('app', ['appFactory',
         function (appFactory) {
+
             return appFactory();
         }
     ])
