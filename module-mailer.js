@@ -12,13 +12,14 @@ module.exports = foduler.module('fm:mailer')
     .factory('fm:mailer configure', ['swig multiLoader',
         function (swigMultiLoader) {
             var config = {
+                debug: false,
                 swig: {
                     autoescape: true,
                     varControls: ['[{', '}]'],
                     cmtControls: ['[#', '$]'],
                     tagControls: ['[%', '%]'],
                     cache: 'memory',
-                    loader : new swigMultiLoader()
+                    loader: new swigMultiLoader()
                 },
 
                 service: {
@@ -42,6 +43,9 @@ module.exports = foduler.module('fm:mailer')
                 addSmtp: function (smtpConfig) {
                     config.smtp.push(smtpConfig)
                 },
+                debug: function (debug) {
+                    config.debug = debug;
+                },
                 addViewPath: function (path) {
                     config.swig.loader.addPath(path);
                 }
@@ -52,7 +56,6 @@ module.exports = foduler.module('fm:mailer')
     .factory('fm:mailer instance', ['nodemailer', 'fm:mailer configure',
         function (nodemailer, configure) {
             return function (options) {
-
 
 
                 var transporter, busy = false, timer,
@@ -118,8 +121,8 @@ module.exports = foduler.module('fm:mailer')
             }
         };
     })
-    .factory('fm:mailer service', ['fm:mailer configure', 'fm:mailer queue','fm:mailer errors', 'fm:mailer instance',
-        function (configure, queue,errors, instance) {
+    .factory('fm:mailer service', ['fm:mailer configure', 'fm:mailer queue', 'fm:mailer errors', 'fm:mailer instance',
+        function (configure, queue, errors, instance) {
             var instances = [], timer, started = false;
 
             var start = function () {
@@ -148,10 +151,10 @@ module.exports = foduler.module('fm:mailer')
                     var job = queue.next();
                     if (job) {
                         instance.send(job, function (err, info) {
-                            if(err) {
+                            if (err) {
                                 errors.add({
-                                    error : err,
-                                    item : job
+                                    error: err,
+                                    item: job
                                 })
                             }
                         });
@@ -180,13 +183,13 @@ module.exports = foduler.module('fm:mailer')
         }
     ])
 
-    .factory('fm:mailer template', ['fm:mailer configure','swig',
-        function (config,Swig) {
+    .factory('fm:mailer template', ['fm:mailer configure', 'swig',
+        function (configure, Swig) {
             var swig = false;
 
             function tpl(file) {
                 if (swig === false) {
-                    swig = new Swig.Swig(config.get().swig);
+                    swig = new Swig.Swig(configure.get().swig);
                 }
 
 
@@ -199,21 +202,18 @@ module.exports = foduler.module('fm:mailer')
             }
         }
     ])
-    .factory('fm:mailer mailer', ['fm:mailer queue', 'fm:mailer service', 'fm:mailer template',
-        function (queue, service, tpl) {
+    .factory('fm:mailer mailer', ['fm:mailer queue', 'fm:mailer service', 'fm:mailer template','fm:mailer configure',
+        function (queue, service, tpl,configure) {
             var o = {
                 text: function (mailOptions) {
-                    //var mailOptions = {
-                    //    from: "Fred Foo ? <foo@blurdybloop.com>", // sender address
-                    //    to: "bar@blurdybloop.com, baz@blurdybloop.com", // list of receivers
-                    //    subject: "Hello ?", // Subject line
-                    //    text: "Hello world ?", // plaintext body
-                    //    html: "<b>Hello world ?</b>" // html body
-                    //}
+                    if(configure.get().debug) {
+                        console.log('mailer debug',mailOptions)
+                    }
+
                     queue.add(mailOptions);
                     service.check();
                 },
-                html: function ( file, locals,mailOptions) {
+                html: function (file, locals, mailOptions) {
                     var html = mailOptions.html = tpl(file, locals);
                     o.text(mailOptions);
                 }
