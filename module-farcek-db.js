@@ -6,9 +6,15 @@ module.exports = foduler.module('module:farcek-db')
 
     .factory('FarcekDb', ['FarcekDb config',
         function (config) {
-            if(config)
+            if (config)
                 return new FarcekDb.container(config);
             throw "not allowed config. inject name 'FarcekDb config' ";
         }
     ])
+    .factory('FarcekDb errors', function () {
+        return {
+            ValidationError: FarcekDb.ValidationError,
+            IdnotfoundError: FarcekDb.IdnotfoundError,
+        }
+    })
 

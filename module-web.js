@@ -5,6 +5,9 @@ module.exports = foduler.module('module:web-base')
     .factory('express', function () {
         return require('express');
     })
+    .factory('session', function () {
+        return require('express-session');
+    })
     .factory('favicon', function () {
         return require('serve-favicon');
     })
@@ -14,14 +17,17 @@ module.exports = foduler.module('module:web-base')
     .factory('body-parser', function () {
         return require('body-parser');
     })
+    .factory('cookie-parser', function () {
+        return require('cookie-parser');
+    })
 
-    .factory('appFactory', ['express',function (express) {
+    .factory('appFactory', ['express', function (express) {
         var _app;
         return function (app) {
             var _app = app || (_app = express());
 
             _app.disable('x-powered-by');
-            return _app ;
+            return _app;
         };
     }])
     .factory('app', ['appFactory',
@@ -30,7 +36,13 @@ module.exports = foduler.module('module:web-base')
             return appFactory();
         }
     ])
-
+    .factory('module:web-base tools', ['module:web-base pager', 'module:web-base ordering', 'module:web-base filtering',
+        function (pager, order, filter) {
+            return {
+                pager: pager, order: order, filter: filter
+            }
+        }
+    ])
     .factory('module:web-base pager', function () {
         return function (name) {
             return function (req, res, next) {
@@ -103,32 +115,45 @@ module.exports = foduler.module('module:web-base')
                     } catch (e) {
 
                     }
-
-
                 }
+                var groupOr = function (data) {
 
-                var groupB = function (data) {
                     return function () {
-                        for (var j in data) {
-                            var it = data[j]
-                            this.orWhere(it.n, it.op, it.vl)
-                        }
+                        var q = this;
+
+                        data.forEach(function (it) {
+                            if (it){
+                                var n = it.n || it.name || it.field;
+                                var v = it.v || it.vl || it.value;
+                                var op = it.op || it.operator;
+                                if (n && op)
+                                    q.orWhere(n, op, v)
+                            }
+
+                        })
                     }
                 }
 
                 req.filtering = {
                     params: params,
                     whereApply: function (q) {
-                        for (var i in params) {
-                            var f = params[i];
-                            if ('$or' in f && Array.isArray(f['$or'])) {
-                                q.where(groupB(f['$or']))
-                            } else if ('$and' in f && Array.isArray(f['$and'])) {
-                                q.where(groupB(f['$or']))
-                            } else
-                                q.where(f.n, f.op, f.valid)
+                        if (Array.isArray(params)) {
+                            params.forEach(function (it) {
 
+                                if (it)
+                                    if ('$or' in  it) {
+                                        q.where(groupOr(it.$or))
+                                    } else {
+                                        console.log('and q',it)
+                                        var n = it.n || it.name || it.field;
+                                        var v = it.v || it.vl || it.value;
+                                        var op = it.op || it.operator;
+                                        if (n && op)
+                                            q.where(n, op, v)
+                                    }
+                            })
                         }
+                        return q;
 
 
                     }

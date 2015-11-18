@@ -136,7 +136,7 @@ function $$start(module) {
     eachModule(function (m) {
         _.each(m.$factories(), function (factory, name) {
             if (name in factories)
-                throw new name + '<- the factory already defined. define value request name=' + name;
+                throw name + ' <- the factory already defined. define value request name=' + name;
             factories[name] = factory;
         })
     })// reg factories
@@ -180,7 +180,7 @@ function $$start(module) {
         }
 
 
-        throw  'not found factory. find factory name=' + name
+        throw  'not found factory. find factory name=' + name+'; in module `'+module.$name()+'`'
     }
 
     function factoryValue(name) {

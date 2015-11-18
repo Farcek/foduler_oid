@@ -48,21 +48,28 @@ function Resource(conf, Promise, log) {
             var b = function (req, res, next) {
                 var file = req.file;
                 if (req.file) {
-                    req.file.apply = function () {
+                    req.file.apply = function (nameBuilder) {
 
                         var self = this;
-                        var ext = mime.extension(self.mimetype);
-                        var fileName = uid(10) + '.' + ext;
-                        //var fileName = self.filename + '.' + ext;
 
-                        return new Promise(function (resolve, reject) {
-                            move(self.path, path.join(conf.root, fileName), function (err) {
-                                if (err) return reject(err);
-                                log('', 'move file' + fileName)
-                                self.resourceName = fileName;
-                                resolve();
-                            });
-                        })
+                        nameBuilder = nameBuilder || function () {
+                                var ext = mime.extension(self.mimetype);
+                                var fileName = uid(10) + '.' + ext;
+
+                                return fileName;
+                            }
+
+                        return Promise.try(nameBuilder)
+                            .then(function (fileName) {
+                                return new Promise(function (resolve, reject) {
+                                    move(self.path, path.join(conf.root, fileName), function (err) {
+                                        if (err) return reject(err);
+                                        log('', 'move file' + fileName)
+                                        self.resourceName = fileName;
+                                        resolve();
+                                    });
+                                })
+                            })
                             .then(function () {
                                 return self;
                             })
@@ -131,6 +138,8 @@ function Resource(conf, Promise, log) {
 
             if (resourceName) {
                 var file = path.join(conf.root, resourceName);
+
+
                 return new Promise(function (resolve, reject) {
                     fs.unlink(file, function (err) {
                         if (rejected && err) return reject(err);
@@ -139,7 +148,7 @@ function Resource(conf, Promise, log) {
                 });
             }
             return new Promise(function (resolve, reject) {
-                if (rejected) reject("resource name is null");
+                if (rejected) return reject("resource name is null");
                 resolve();
             });
 
@@ -156,12 +165,24 @@ function Resource(conf, Promise, log) {
 
                 cb(false, files);
             });
+        },
+        file: function (filePath) {
+            return new Promise(function (resolve, reject) {
+                var f = path.join(conf.root, filePath);
+
+                fs.stat(f, function (err, stat) {
+                    if (err) return reject(err);
+
+                    resolve(f);
+                });
+            })
         }
     }
 }
 /**
  * confit format
  *  {
+        rootRouter : ''
         default: {
             temp: path.join(process.cwd(), 'temp'),
             root: path.join(process.cwd(), 'uploader')
@@ -182,15 +203,21 @@ module.exports = foduler.module('module:resource')
         return multer;
     })
 
+    .factory('resource:uid', function () {
+        return uid;
+    })
+
     .factory('resource:uploader', ['module:resource:config', 'Promise', 'log',
         function (config, Promise, log) {
 
             var _default = null;
-            for (var section in config) {
-                if (_default == null) {
-                    _default = Resource(config[section], Promise, log);
-                } else
-                    _default[section] = Resource(config[section], Promise, log);
+            for (var it in config) {
+                var section = config[it];
+                if (section && section !== null && typeof section === 'object')
+                    if (_default == null) {
+                        _default = Resource(section, Promise, log);
+                    } else
+                        _default[it] = Resource(section, Promise, log);
             }
             return _default;
         }
@@ -212,7 +239,7 @@ module.exports = foduler.module('module:resource')
                 },
                 send: function (callbak) {
                     return function (req, res, next) {
-                        Promise.resolve(callbak(req, res))
+                        Promise.try(callbak(req, res))
                             .then(function (image) {
                                 var fle;
                                 if (image)
@@ -237,6 +264,7 @@ module.exports = foduler.module('module:resource')
                         if (fileName)
                             fle = path.join(sett.rootPath, fileName);
 
+                        console.log(fle);
 
                         if (fle && fs.existsSync(fle))
                             res.sendFile(fle);
@@ -244,6 +272,33 @@ module.exports = foduler.module('module:resource')
                     }
                 }
             }
+        }
+    ])
+    .factory('resource:root:router', ['injector', 'module:resource:config',
+        function (injector, config) {
+            return function () {
+                if ('rootRouter' in config) {
+                    return injector(config.rootRouter);
+                } else {
+                    throw  new Error('not found `rootRouter` in `module:resource:config`');
+                }
+            }
+        }
+    ])
+    .factory('fm:resource manager', ['resource:uploader',
+        function (uploader) {
+            return {
+                multer: multer,
+                uploader: function (section) {
+                    if (section) return uploader[section];
+                    return uploader;
+                }
+            }
+        }
+    ])
+    .run(['resource:root:router', 'resource:router',
+        function (router, rs) {
+            router().get('/:image', rs.public());
         }
     ])
 
