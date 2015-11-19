@@ -239,7 +239,7 @@ module.exports = foduler.module('module:resource')
                 },
                 send: function (callbak) {
                     return function (req, res, next) {
-                        Promise.try(callbak(req, res))
+                        Promise.resolve(callbak(req, res))
                             .then(function (image) {
                                 var fle;
                                 if (image)
