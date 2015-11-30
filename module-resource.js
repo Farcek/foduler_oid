@@ -80,7 +80,7 @@ function Resource(conf, Promise, log) {
                         return new Promise(function (resolve, reject) {
                             var file;
                             if (self.resourceName) {
-                                file = path.join(conf.root, resourceName);
+                                file = path.join(conf.root, self.resourceName);
                             } else {
                                 file = self.path;
                             }
@@ -176,6 +176,21 @@ function Resource(conf, Promise, log) {
                     resolve(f);
                 });
             })
+        },
+        send: function (callbak) {
+            return function (req, res, next) {
+                Promise.resolve(callbak(req, res))
+                    .then(function (image) {
+                        var fle;
+                        if (image)
+                            fle = path.join(conf.root, image);
+
+                        if (fle && fs.existsSync(fle))
+                            res.sendFile(fle);
+                        else res.sendFile(path.join(__dirname, 'resource/medium.jpg'));
+                    })
+                    .catch(next)
+            }
         }
     }
 }
@@ -290,6 +305,10 @@ module.exports = foduler.module('module:resource')
             return {
                 multer: multer,
                 uploader: function (section) {
+                    if (section) return uploader[section];
+                    return uploader;
+                },
+                sender : function (section) {
                     if (section) return uploader[section];
                     return uploader;
                 }
