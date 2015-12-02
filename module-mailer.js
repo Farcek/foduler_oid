@@ -126,7 +126,7 @@ module.exports = foduler.module('fm:mailer')
             var instances = [], timer, started = false;
 
             var start = function () {
-                if (started) return;
+                if (started) return worker();
                 started = true;
                 var config = configure.get();
                 if (Array.isArray(config.smtp) && config.smtp.length > 0) {
@@ -141,7 +141,7 @@ module.exports = foduler.module('fm:mailer')
 
             var worker = function () {
                 timer = null;
-
+                console.log('call send worker')
                 var config = configure.get();
 
                 for (var i = 0; i < instances.length; i++) {
@@ -150,8 +150,13 @@ module.exports = foduler.module('fm:mailer')
 
                     var job = queue.next();
                     if (job) {
+                        console.log('send request')
                         instance.send(job, function (err, info) {
+                            console.log('send result',err,info)
                             if (err) {
+                                if (configure.get().debug) {
+                                    console.log('mailer debug', 'send error', err)
+                                }
                                 errors.add({
                                     error: err,
                                     item: job
@@ -167,12 +172,15 @@ module.exports = foduler.module('fm:mailer')
 
             return {
                 check: function (data) {
+
                     start();
                 },
                 start: function () {
+                    console.log('call start')
                     start();
                 },
                 stop: function () {
+                    console.log('call stop')
                     instances.forEach(function (it) {
                         it.dispose();
                     });
@@ -202,12 +210,12 @@ module.exports = foduler.module('fm:mailer')
             }
         }
     ])
-    .factory('fm:mailer mailer', ['fm:mailer queue', 'fm:mailer service', 'fm:mailer template','fm:mailer configure',
-        function (queue, service, tpl,configure) {
+    .factory('fm:mailer mailer', ['fm:mailer queue', 'fm:mailer service', 'fm:mailer template', 'fm:mailer configure',
+        function (queue, service, tpl, configure) {
             var o = {
                 text: function (mailOptions) {
-                    if(configure.get().debug) {
-                        console.log('mailer debug',mailOptions)
+                    if (configure.get().debug) {
+                        console.log('mailer debug', mailOptions)
                     }
 
                     queue.add(mailOptions);
