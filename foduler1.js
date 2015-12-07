@@ -18,6 +18,9 @@ function $$module(name) {
         },
         factory: function (name, handle) {
             factories[name] = handle;
+
+            handle.$$module = module;
+
             return this;
         },
         config: function (handle) {
