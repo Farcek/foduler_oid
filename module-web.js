@@ -36,6 +36,28 @@ module.exports = foduler.module('module:web-base')
             return appFactory();
         }
     ])
+    .factory('m:w promise-express', ['Promise', function (Promise) {
+        return function (req, res, next) {
+            res.promiseJson = function (fn) {
+                Promise.try(fn)
+                    .then(function (result) {
+                        res.json(result);
+                    })
+                    .catch(function (err) {
+                        res.status(err.status || 500);
+                        res.json({
+                            name: err.name,
+                            message: err.message || err,
+                            errors: err.errors
+                        })
+                    })
+            }
+            res.promiseHtml = function () {
+                throw 'todo html'
+            }
+            next();
+        }
+    }])
     .factory('module:web-base tools', ['module:web-base pager', 'module:web-base ordering', 'module:web-base filtering',
         function (pager, order, filter) {
             return {
@@ -122,7 +144,7 @@ module.exports = foduler.module('module:web-base')
                         var q = this;
 
                         data.forEach(function (it) {
-                            if (it){
+                            if (it) {
                                 var n = it.n || it.name || it.field;
                                 var v = it.v || it.vl || it.value;
                                 var op = it.op || it.operator;
@@ -144,7 +166,7 @@ module.exports = foduler.module('module:web-base')
                                     if ('$or' in  it) {
                                         q.where(groupOr(it.$or))
                                     } else {
-                                        console.log('and q',it)
+                                        console.log('and q', it)
                                         var n = it.n || it.name || it.field;
                                         var v = it.v || it.vl || it.value;
                                         var op = it.op || it.operator;
