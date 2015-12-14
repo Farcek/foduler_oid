@@ -9,16 +9,16 @@ module.exports = foduler.module('module:view-engine')
     })
     .factory('swig multiLoader', function () {
         return function (basepaths, encoding) {
-            var ret = {},roots=[];
+            var ret = {}, roots = [];
 
             encoding = encoding || 'utf8';
 
-            if(Array.isArray(basepaths)) {
+            if (Array.isArray(basepaths)) {
                 roots = basepaths;
             }
 
-            function getRoots(){
-                if(roots.length == 0) {
+            function getRoots() {
+                if (roots.length == 0) {
                     roots.push(process.cwd());
                 }
                 return roots;
@@ -26,37 +26,39 @@ module.exports = foduler.module('module:view-engine')
 
 
             ret.resolve = function (to, from) {
-
+                console.log('call  resolve', to, from)
                 var roots = getRoots();
 
-                if(from){
+                if (from) {
                     var p = path.resolve(from, to);
-
-                    var stats =fs.statSync(p);
-                    if(stats.isFile()) return p;
+                    if (fs.existsSync(p)) return p;
                 }
 
-                for(var k in roots){
+                for (var k in roots) {
                     it = roots[k];
                     var p = path.resolve(it, to);
-                    var stats =fs.statSync(p);
-                    if(stats && stats.isFile()) return p;
+                    if (fs.existsSync(p)) return p;
                 }
 
-                throw new Error('cannot resolve :' + to + ' in dirs '+roots.join(', ') );
+                throw new Error('cannot resolve :' + to + ' in dirs ' + roots.join(', '));
             };
 
             ret.addPath = function (newPath) {
                 roots.push(newPath);
             }
 
+            ret.getPaths = function () {
+                return getRoots();
+            }
+
 
             ret.load = function (identifier, cb) {
+
                 if (!fs || (cb && !fs.readFile) || !fs.readFileSync) {
                     throw new Error('Unable to find file ' + identifier + ' because there is no filesystem to read from.');
                 }
 
-                identifier = ret.resolve(identifier);
+                //identifier = ret.resolve(identifier);
 
                 if (cb) {
                     fs.readFile(identifier, encoding, cb);
@@ -68,15 +70,17 @@ module.exports = foduler.module('module:view-engine')
             return ret;
         };
     })
-    .factory('view engine', ['swig',
-        function (swig) {
-            var paths = [];
+    .factory('view engine', ['swig', 'swig multiLoader',
+        function (swig, Loader) {
+            var extras = [], loader = new Loader();
+
+
             return {
                 apply: function (app, options) {
                     options = options || {}
                     app.engine('html', swig.renderFile);
                     app.set('view engine', 'html');
-                    app.set('views', paths);
+                    app.set('views', loader.getPaths());
                     app.set('view cache', options.cache || false);
 
                     swig.setDefaults({cache: options.cache || false});
@@ -86,10 +90,8 @@ module.exports = foduler.module('module:view-engine')
                         cmtControls: options.varControls || ['[#', '#]']
                     });
 
-                    if (options.loadPath){
-                        console.log('options.loadPath',options.loadPath)
-                        swig.setDefaults({loader: swig.loaders.fs(options.loadPath)});
-                    }
+
+                    swig.setDefaults({loader: loader});
 
 
                     function dirName(input) {
@@ -97,15 +99,19 @@ module.exports = foduler.module('module:view-engine')
                     }
 
                     swig.setFilter('dirName', dirName);
+
+                    extras.forEach(function (fn) {
+                        fn(swig);
+                    })
                 },
                 addPath: function (path) {
-                    paths.push(path);
+                    loader.addPath(path)
+                },
+                addExtra: function (fn) {
+                    extras.push(fn);
                 },
                 getPaths: function () {
-                    return paths;
-                },
-                setPaths: function (pts) {
-                    paths = pts;
+                    return loader.getPaths()
                 }
             }
         }
