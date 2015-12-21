@@ -36,6 +36,28 @@ module.exports = foduler.module('module:web-base')
             return appFactory();
         }
     ])
+
+    .factory('routerFactory', ['app', 'express',
+        function (app, express) {
+            /***
+             * options.app | options.base
+             * options.before | options.middleware
+             */
+            return function (path, options) {
+                options = options || {};
+                var router = express.Router();
+                var base = options.base || options.app || app;
+                var before = options.before || options.middleware;
+                if (before) {
+                    base.use(path, before, router);
+                } else {
+                    base.use(path, router);
+                }
+                return router;
+            }
+        }
+    ])
+
     .factory('m:w promise-express', ['Promise', function (Promise) {
         return function (req, res, next) {
             res.promiseJson = function (fn) {

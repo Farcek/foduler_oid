@@ -26,7 +26,7 @@ module.exports = foduler.module('module:view-engine')
 
 
             ret.resolve = function (to, from) {
-                
+
                 var roots = getRoots();
 
                 if (from) {
