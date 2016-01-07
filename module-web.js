@@ -58,28 +58,8 @@ module.exports = foduler.module('module:web-base')
         }
     ])
 
-    .factory('m:w promise-express', ['Promise', function (Promise) {
-        return function (req, res, next) {
-            res.promiseJson = function (fn) {
-                Promise.try(fn)
-                    .then(function (result) {
-                        res.json(result);
-                    })
-                    .catch(function (err) {
-                        res.status(err.status || 500);
-                        res.json({
-                            name: err.name,
-                            message: err.message || err,
-                            errors: err.errors
-                        })
-                    })
-            }
-            res.promiseHtml = function () {
-                throw 'todo html'
-            }
-            next();
-        }
-    }])
+
+
     .factory('module:web-base tools', ['module:web-base pager', 'module:web-base ordering', 'module:web-base filtering',
         function (pager, order, filter) {
             return {
@@ -145,7 +125,6 @@ module.exports = foduler.module('module:web-base')
             }
         }
     })
-
     .factory('module:web-base filtering', function () {
         return function (name) {
 
@@ -208,3 +187,68 @@ module.exports = foduler.module('module:web-base')
             }
         }
     })
+
+
+    .factory('m:w promise-express', ['Promise', function (Promise) {
+        return function (req, res, next) {
+            res.promiseJson = function (fn) {
+                Promise.try(fn)
+                    .then(function (result) {
+                        res.json(result);
+                    })
+                    .catch(function (err) {
+                        res.status(err.status || 500);
+                        res.json({
+                            name: err.name,
+                            message: err.message || err,
+                            errors: err.errors
+                        })
+                    })
+            }
+            res.promiseHtml = function () {
+                throw 'todo html'
+            }
+            next();
+        }
+    }])
+
+    .factory('m:w tools', ['Promise',
+        function () {
+
+        }
+    ])
+    .factory('m:w ordering', [
+        function () {
+            /**
+             * @param queryParamName string default ordering
+             */
+            return function (options) {
+
+                return function (req, res, next) {
+
+                    var str = req.query[queryParamName || 'ordering'];
+
+                    var ordering = {}
+                    if (str) {
+                        try {
+                            var params = JSON.parse(str)
+
+                            for (var k in params) {
+                                ordering.field = k;
+                                ordering.type = params[k];
+                                break
+                            }
+                        } catch (e) {
+
+                        }
+                    }
+
+
+                    req.ordering = ordering
+
+
+                    next()
+                }
+            }
+        }
+    ])
