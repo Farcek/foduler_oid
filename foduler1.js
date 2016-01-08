@@ -97,6 +97,11 @@ function $$start(module) {
                         return factoryValue(name)
                     }
                 })
+                .factory('$injector', function () {
+                    return function (name) {
+                        return factoryValue(name)
+                    }
+                })
                 .factory('$value', function () {
                     return function (name) {
                         return values[name]
