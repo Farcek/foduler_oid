@@ -30,8 +30,13 @@ module.exports = foduler.module('module:rs')
                 },
 
                 get tempDir() {
-                    if (_tempDir === false)
+                    if (_tempDir === false) {
                         _tempDir = path.join(self.rootDir, '_tmp');
+                        mkdirp(_tempDir, function (err) {
+                            if (err) console.error('cannot create rs _tempDir', err);
+                        });
+                    }
+
                     return _tempDir;
                 }
             }
