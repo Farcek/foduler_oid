@@ -1,230 +1,366 @@
-var modules = {};
-var values = {};
-var events = {};
-var factoryInstance = {};
+var _ = require('lodash');
+var Promise = require('bluebird');
+var stringFormat = require('string-format');
 
-function getModule(name) {
-    return modules[name]
-}// hehe
+(function () {
+    stringFormat.extend(String.prototype);
+})();// init system
 
-function hasFactory(name) {
-    for (var i in modules) {
-        if (modules[i].$has(name)) {
-            return i
+function $$module(name) {
+    var $self, $as, $includes = [], $factories = {}, $runs = [], $name = _.trim(name),
+        $values = {}, $configs = [], $events = {};
+
+    return ($self = {
+        get $__name() {
+            return '$$module';
+        },
+        get $name() {
+            return $name;
+        },
+        get $container() {
+            return $container;
+        },
+        get $as() {
+            return $as || $name;
+        },
+        get $includes() {
+            return $includes;
+        },
+        get $values() {
+            return $values;
+        },
+        get $configs() {
+            return $configs;
+        },
+        get $factories() {
+            return $factories;
+        },
+        get $runs() {
+            return $runs;
+        },
+        get $events() {
+            return $events;
+        },
+
+        as: function (as) {
+            $as = as;
+            return $self;
+        },
+        include: function (module) {
+            if (module && module.$__name === '$$module') {
+                $includes.push(module);
+                return $self;
+            }
+
+            throw 'module bish bna. ' + module;
+        },
+        value: function (name, value) {
+            $values[name] = value;
+            return $self;
+        },
+        on: function (name, handle) {
+            ($events[name] || ($events[name] = [])).push(handle);
+
+            return $self;
+        },
+        config: function (handle) {
+            $configs.push(handle);
+            return $self;
+        },
+
+        factory: function (name, handles) {
+            $factories[name] = handles;
+            return $self;
+        },
+
+        run: function (handles) {
+            $runs.push(handles);
+            return $self;
         }
-    }
-    return false
-}
-function getFactory(name) {
-
-    for (var i in modules) {
-        if (modules[i].$has(name)) {
-            return modules[i].$get(name)
-        }
-    }
-    throw  'not found factory. find factory name=' + name
+    });
 }
 
-function factoryValue(name) {
-    if (name in factoryInstance) return factoryInstance[name];
-    if (name in values) return values[name];
+function $$fodule($module, $instance) {
 
-    var factory = getFactory(name);
-    return factoryInstance[name] = caller(factory);
-}
+    var $self = {
+        get $name() {
+            return $module.$name;
+        },
+        get $as() {
+            return $module.$as;
+        },
+        get $module() {
+            return $module;
+        },
+        $invoke: function (handle) {
+            return $instance.$invoke(handle, $self);
+        },
+        emit: function (name) {
+            var items = []
+            var listeners = $module.$events[name] || [];
+            _.each(listeners, function (handle) {
+                items.push($self.$invoke(handle));
+            });
 
-function on(name, hand) {
-    var listener = events[name] || (events[name] = [])
-    listener.push(hand);
-    return this;
-}
-function emit(name, params) {
-    var results = []
-    if (name in events) {
-        var listener = events[name];
-
-        for (var i in listener) {
-            results.push(caller(listener[i]))
-        }
-    }
-
-    return Promise.all(results)
-}
-
-function caller(hand, params) {
-    //console.log('caller',hand)
-    if (typeof hand === 'function') {
-        return hand();
-    }
-    if (Array.isArray(hand)) {
-        var fn = hand.slice(-1);
-        var injects = hand.slice(0, hand.length - 1);
-
-        var dependencies = [];
-        for (var i in injects) {
-            if (i === 'params')
-                dependencies.push(params);
-            else
-                dependencies.push(factoryValue(injects[i]));
-        }
-
-        return fn[0].apply(undefined, dependencies)
-    }
-}
-
-function foduler(name, reqModules) {
-
-    if (name in modules) throw name + ' <- the named module already registered'
-
-    var self = modules[name] = this;
-
-
-    var configs = [], runs = [];
-    var factories = {}
-
-
-    this.config = function (handle) {
-        configs.push(handle)
-        return self
-    }
-    this.value = function (name, value) {
-        values[name] = value;
-        return self
-    }
-
-    this.factory = function (name, handle) {
-        var h = hasFactory(name);
-
-        if (h) throw name + ' <- the name already registered factory. registered module ' + h;
-        factories[name] = handle;
-        return self
-    }
-
-    this.$has = function (name) {
-        return name in factories;
-    }
-
-    this.$get = function (name) {
-        return factories[name];
-    }
-
-
-    this.run = function (handle) {
-        runs.push(handle)
-        return self
-    }
-
-    this.$test = function () {
-        for (var i in reqModules || []) {
-            var n = reqModules[i];
-            if (!(n in modules))
-                throw n + '<- not registered module';
+            return Promise.all(items);
         }
     };
-    this.$config = function () {
 
-        for (var i in configs) {
-            caller(configs[i])
+
+    $instance.$fodules[$self.$name] = $self;
+
+    if ($self.$as in $instance.$aliasFodules) {
+        throw  '`{srcModule}` nertei module-n `{as}` alias ni `{deffModule}` nertai module-n alias-tai ijilhen bna'.format({
+            srcModule: $module.$name,
+            deffModule: $instance.$aliasFodules[$module.$as].$module.$name,
+            as: $module.$as
+        });
+    }
+    $instance.$aliasFodules[$self.$as] = $self;
+
+    // event register to foduleInstance
+    _.each($module.$events, function (e, eventName) {
+        var listener = $instance.$events[eventName] || ($instance.$events[eventName] = []);
+
+        for (var i in e) {
+            listener.push(e[i]);
         }
-    }
-    this.$run = function () {
+    });
 
-        for (var i in runs) {
-            caller(runs[i])
+    // included module create
+    $module.$includes.forEach(function (module) {
+        if (!(module.$name in $instance.$fodules)) {
+            $$fodule(module, $instance);
         }
+    });
 
-
-    }
-
-    this.on = function (name, hand) {
-        on(name, hand)
-        return self;
-    }
+    return $self;
 
 
 }
 
 
-module.exports.module = function (name, reqModules) {
-    return new foduler(name, reqModules)
-}
-module.exports.start = function () {
-    Promise.resolve()
-        .then(function () {//test
-            var test = []
-            for (var k in modules) {
-                test.push(modules[k].$test());
-            }
-            return Promise.all(test)
-        })
-        .then(function () {
-            var configs = []
+function $$foduleInstance($instanceName) {
+    var $self, $modules = {}, $fodules = {}, $aliasFodules = {}, $factoriesInstances = {}, $events = {};
 
-            for (var k in modules) {
-                configs.push(modules[k].$config());
-            }
+    //var registerAs = function ($fodule) {
+    //    var $module = $fodule.$module;
+    //
+    //    if ($module.$as in $aliasFodules)
+    //        throw  '`{srcModule}` nertei module-n `{as}` alias ni `{deffModule}` nertai module-n alias-tai ijilhen bna'.format({
+    //            srcModule: $module.$name,
+    //            deffModule: $aliasFodules[$module.$as].$module.$name,
+    //            as: $module.$as
+    //        });
+    //
+    //    $aliasFodules[$module.$as] = $fodule;
+    //};
 
-            return Promise.all(configs)
-        })
 
-        .then(function () {
-            var t = [];
-            for (var k in modules) {
-                t.push(modules[k].$run());
-            }
-            return Promise.all(t)
+    return ($self = {
+        get $fodules() {
+            return $fodules;
+        },
+        get $aliasFodules() {
+            return $aliasFodules;
+        },
+        get $events() {
+            return $events;
+        },
+        get $factoriesInstances() {
+            return $factoriesInstances;
+        },
+        register: function (module) {
+            if (module.$name in $modules) throw  '`{$instanceName}` nertei foduleInstance dotor `{module}` nertei module burtguulchihsen bna'.format({
+                module: module.$name,
+                $instanceName: $instanceName
+            });
+
+            $modules[module.$name] = true;
+        },
+        start: function ($module) {
+//            console.log('starting `%s`', $module.$name);
+
+            var $fodule = $$fodule($module, $self);
+
+            if (!($module.$name in $fodules))
+                throw  "`{$instanceName}` nertei foduleInstance dotor `{module}` nertei module burtgegdeegui bna".format({
+                    module: $module.$name,
+                    $instanceName: $instanceName
+                });
+
+            return Promise.resolve()
                 .then(function () {
-                    emit('postRun');
+                    return runConfigs();
                 })
-        })
+                .then(function () {
+                    return runRuns();
+                })
+                .then(function () {
+                    return;
+                });
 
 
+        },
+        $namer: function (name) {
+            var names = name.split(':');
+            if (names.length < 3) {
+                if (names.length == 1)
+                    return {
+                        module: false,
+                        name: _.trim(names[0])
+                    };
+                return {
+                    module: _.trim(names[0]),
+                    name: _.trim(names[1])
+                };
+            }
+            throw 'not supported name';
+        },
+        $invoke: function (handle, $fodule) {
+
+            //console.log('$invoke 1>', handle, $fodule.$name)
+
+            if (_.isFunction(handle)) {
+                return handle.apply($fodule.$module);
+            }
+
+            if (_.isArray(handle)) {
+                var fn = handle[handle.length - 1], i, dependencies, factoryName, dep;
+                if (_.isFunction(fn)) {
+                    dependencies = [];
+                    for (i = 0; i < handle.length - 1; i++) {
+                        factoryName = handle[i];
+                        {
+                            //console.log('$invoke 2>', factoryName, $fodule.$as);
+                            dep = $self.$factoryValue(factoryName, $fodule);
+
+                            // console.log('$invoke dep', factoryName, dep);
+
+                            if (dep) {
+                                dependencies.push(dep.result);
+                            } else {
+                                throw 'not found factory `{0}`'.format(factoryName);
+                            }
+                        }
+                    }
+                    return fn.apply($fodule.$module, dependencies);
+
+                    //} else {
+                    //    for (i = 0; i < handle.length - 1; i++) {
+                    //        factoryName = handle[i];
+                    //        dep = $self.$factoryValue(factoryName, $fodule);
+                    //        if (dep === false) {
+                    //            throw 'not found factory `{0}`'.format(factoryName);
+                    //        }
+                    //    }
+                    //    return;
+                }
+            }
+            throw  'not supported handle';
+        },
+        $factoryValue: function (factoryName, $fodule) {
+            var namer = $self.$namer(factoryName), fodule;
+            var lockup = function (name, fodule) {
+
+                var value = (function (module) {
+
+                    if (namer.name in module.$values) {
+                        return module.$values[namer.name];
+                    }
+
+                    if (namer.name in module.$factories) {
+                        var aliasName = module.$as + ':' + name;
+                        var moduleName = module.$name + ':' + name;
+
+                        if (aliasName in $factoriesInstances) return $factoriesInstances[aliasName];
+                        if (moduleName in $factoriesInstances) return $factoriesInstances[moduleName];
+
+                        var factory = module.$factories[name];
+                        var factoriesInstance = $self.$invoke(factory, fodule);
+
+                        $factoriesInstances[aliasName] = factoriesInstance;
+                        $factoriesInstances[moduleName] = factoriesInstance;
+                        return factoriesInstance;
+                    }
+                    return false;
+                })(fodule.$module);
+
+                //console.log('$v 1>', name, $fodule.$as, v);
+                return {
+                    result: value
+                };
+            };
+
+            if (namer.module) {
+                if (namer.module in $fodules) {
+                    fodule = $fodules[namer.module];
+                    return lockup(namer.name, fodule);
+                }
+
+                if (namer.module in $aliasFodules) {
+                    fodule = $aliasFodules[namer.module];
+                    return lockup(namer.name, fodule);
+                }
+
+            } else {
+                return lockup(namer.name, $fodule);
+            }
+            return false;
+        }
+
+    });
+
+    function emit(name) {
+        var items = []
+        _.each($fodules, function (fodule) {
+            items.push(fodule.emit(name));
+        });
+
+        return Promise.all(items);
+    }
+
+    function runConfigs() {
+        var items = [];
+        _.each($fodules, function (fodule) {
+            _.each(fodule.$module.$configs, function (handle) {
+                items.push($self.$invoke(handle, fodule));
+            });
+        });
+        return Promise.all(items);
+    }
+
+    function runRuns() {
+        var items = [];
+        _.each($fodules, function (fodule) {
+            _.each(fodule.$module.$runs, function (handle) {
+                items.push($self.$invoke(handle, fodule));
+            });
+        });
+        return Promise.all(items)
+            .then(function () {
+                return emit('postRun');
+            });
+    }
 }
 
-var _ = require('lodash');
-var Promise = require('bluebird')
+function foduler($instanceName) {
+    var $instance = $$foduleInstance($instanceName);
 
-var express = require('express');
-var app = express();
-var FarcekDb = require('FarcekDB')
+    return {
 
+        module: function (name) {
+            var module = $$module(name, $instance);
+            $instance.register(module);
+            return module;
+        },
+        start: function (module) {
+            $instance.start(module);
+        }
+    };
+}
 
-
-new foduler('core')
-    .value('loading mode', 'www')
-    .factory('injector', function () {
-        return function (name) {
-            return factoryValue(name)
-        }
-    })
-    .factory('$value', function () {
-        return function (name) {
-            return values[name]
-        }
-    })
-    .factory('_', function () {
-        return _;
-    })
-    .factory('Promise', function () {
-        return Promise
-    })
-    .factory('express', function () {
-        return express
-    })
-    .factory('Router', function () {
-        return express.Router
-    })
-    .factory('emit', function () {
-        return function (name, params) {
-            return emit(name, params)
-        }
-    })
-    .factory('app', function () {
-        return app;
-    })
-    .factory('FarcekDb', ['FarcekDb config',
-        function (config) {
-            throw new Error('hhh')
-            return new FarcekDb.container(config);
-        }
-    ])
+module.exports = foduler('default foduleInstance');
+module.exports.factory = function ($instanceName) {
+    return foduler($instanceName);
+};
